@@ -3,7 +3,8 @@
 import { create } from 'zustand';
 import {
   type User,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -23,7 +24,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
 
   signInWithGoogle: async () => {
-    await signInWithPopup(auth, googleProvider);
+    await signInWithRedirect(auth, googleProvider);
   },
 
   signOut: async () => {
@@ -32,10 +33,19 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   // Call once in App.tsx — returns unsubscribe fn
   init: () => {
+    // Handle redirect result after returning from Google login page
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        saveUserProfile(
+          result.user.uid,
+          result.user.displayName ?? '',
+          result.user.photoURL ?? ''
+        ).catch(console.error);
+      }
+    }).catch(console.error);
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       set({ user, loading: false });
-      // Write/refresh user profile in Firestore so profile page is visible
-      // immediately without needing to play a game first
       if (user) {
         saveUserProfile(user.uid, user.displayName ?? '', user.photoURL ?? '')
           .catch(console.error);
